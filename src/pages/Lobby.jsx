@@ -142,7 +142,7 @@ export default function Lobby({ onPlay }) {
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: 2,
           }}>ArcadeX</span>
         </div>
-        <nav style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <nav style={{ display: 'flex', gap: 18, flexWrap: 'wrap', justifyContent: 'center', marginTop: 18 }}>
           {[['chess', '♟ Chess'], ['sudoku', '🔢 Sudoku'], ['candy', '🍬 Candy']].map(([id, label]) => (
             <button key={id} id={`nav-${id}`} onClick={() => onPlay(id)} style={{
               padding: '8px 18px', borderRadius: 8,

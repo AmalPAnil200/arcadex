@@ -1,4 +1,15 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
+
+// ─── Window size hook ─────────────────────────────────────────────────────────
+function useWindowWidth() {
+  const subscribe = (cb) => {
+    window.addEventListener('resize', cb);
+    return () => window.removeEventListener('resize', cb);
+  };
+  const getSnapshot = () => window.innerWidth;
+  const getServerSnapshot = () => 1024;
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+}
 
 // ─── Chess Logic ──────────────────────────────────────────────────────────────
 const INIT_BOARD = () => {
@@ -246,6 +257,7 @@ function evalStatus(board, color, ep) {
 const DIFF_DEPTH = { easy: 1, medium: 3, hard: 4 };
 
 export default function ChessGame({ onBack }) {
+  const winW = useWindowWidth();
   const [mode, setMode] = useState('select');       // 'select' | 'vs_ai' | 'vs_human'
   const [difficulty, setDifficulty] = useState('medium');
   const [board, setBoard] = useState(INIT_BOARD());
@@ -472,7 +484,10 @@ export default function ChessGame({ onBack }) {
   }
 
   // ── Game board ──────────────────────────────────────────────────────────────
-  const CELL = Math.min(60, Math.floor((typeof window !== 'undefined' ? Math.min(window.innerWidth - 280, 520) : 480) / 8));
+  // On mobile (< 640px) use nearly full width minus padding; on desktop cap at 520 with sidebar offset
+  const isMobile = winW < 640;
+  const boardMaxPx = isMobile ? winW - 32 : Math.min(winW - 300, 520);
+  const CELL = Math.min(isMobile ? 52 : 60, Math.floor(boardMaxPx / 8));
   const LIGHT = '#e8d5b7', DARK = '#b58863';
   const isKingInCheck = (r, c) => {
     const p = board[r][c];
@@ -498,18 +513,18 @@ export default function ChessGame({ onBack }) {
   return (
     <div style={{ minHeight:'100vh', background:'var(--bg)', display:'flex', flexDirection:'column' }}>
       {/* Top bar */}
-      <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 24px', borderBottom:'1px solid rgba(255,255,255,0.06)', background:'rgba(255,255,255,0.02)', flexWrap:'wrap' }}>
-        <button id="chess-back" onClick={onBack} style={{ background:'rgba(255,255,255,0.07)', border:'1px solid rgba(255,255,255,0.12)', color:'#fff', borderRadius:8, padding:'8px 14px', fontSize:13 }}>← Lobby</button>
-        <button id="chess-mode" onClick={() => setMode('select')} style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', color:'rgba(255,255,255,0.6)', borderRadius:8, padding:'8px 14px', fontSize:13 }}>⚙ Mode</button>
-        <span style={{ fontSize:20 }}>♟️</span>
-        <h1 style={{ fontFamily:'var(--font-head)', fontSize:20, fontWeight:900, color:'#00e5ff' }}>Chess</h1>
+      <div style={{ display:'flex', alignItems:'center', gap:8, padding: isMobile ? '10px 12px' : '14px 24px', borderBottom:'1px solid rgba(255,255,255,0.06)', background:'rgba(255,255,255,0.02)', flexWrap:'wrap', rowGap:8 }}>
+        <button id="chess-back" onClick={onBack} style={{ background:'rgba(255,255,255,0.07)', border:'1px solid rgba(255,255,255,0.12)', color:'#fff', borderRadius:8, padding: isMobile ? '6px 10px' : '8px 14px', fontSize: isMobile ? 12 : 13, whiteSpace:'nowrap' }}>← Lobby</button>
+        <button id="chess-mode" onClick={() => setMode('select')} style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', color:'rgba(255,255,255,0.6)', borderRadius:8, padding: isMobile ? '6px 10px' : '8px 14px', fontSize: isMobile ? 12 : 13, whiteSpace:'nowrap' }}>⚙ Mode</button>
+        <span style={{ fontSize: isMobile ? 16 : 20 }}>♟️</span>
+        <h1 style={{ fontFamily:'var(--font-head)', fontSize: isMobile ? 16 : 20, fontWeight:900, color:'#00e5ff' }}>Chess</h1>
 
         {mode === 'vs_ai' && (
-          <div style={{ display:'flex', gap:6, marginLeft:4 }}>
+          <div style={{ display:'flex', gap:4 }}>
             {['easy','medium','hard'].map(d => (
               <button key={d} id={`chess-diff-${d}`}
                 onClick={() => reset('vs_ai', d)}
-                style={{ padding:'5px 12px', borderRadius:8, fontSize:11, fontWeight:600, cursor:'pointer',
+                style={{ padding: isMobile ? '4px 8px' : '5px 12px', borderRadius:8, fontSize: isMobile ? 10 : 11, fontWeight:600, cursor:'pointer',
                   background: difficulty===d ? `${diffColors[d]}22` : 'rgba(255,255,255,0.04)',
                   border: `1px solid ${difficulty===d ? diffColors[d] : 'rgba(255,255,255,0.1)'}`,
                   color: difficulty===d ? diffColors[d] : 'rgba(255,255,255,0.4)', textTransform:'capitalize',
@@ -520,17 +535,17 @@ export default function ChessGame({ onBack }) {
         )}
 
         <div style={{ flex:1 }} />
-        <div style={{ display:'flex', gap:8 }}>
-          {mode === 'vs_ai' && (
-            <div style={{ padding:'6px 14px', borderRadius:8, background:'rgba(0,229,255,0.08)', border:'1px solid rgba(0,229,255,0.25)', fontSize:12, color:'#00e5ff', fontWeight:600 }}>
+        <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+          {mode === 'vs_ai' && !isMobile && (
+            <div style={{ padding:'6px 14px', borderRadius:8, background:'rgba(0,229,255,0.08)', border:'1px solid rgba(0,229,255,0.25)', fontSize:12, color:'#00e5ff', fontWeight:600, whiteSpace:'nowrap' }}>
               🤖 {difficulty.charAt(0).toUpperCase()+difficulty.slice(1)}
             </div>
           )}
-          <button id="chess-reset" onClick={()=>reset()} style={{ background:`${diffColor}15`, border:`1px solid ${diffColor}44`, color:diffColor, borderRadius:8, padding:'8px 16px', fontSize:13, fontWeight:600 }}>New Game</button>
+          <button id="chess-reset" onClick={()=>reset()} style={{ background:`${diffColor}15`, border:`1px solid ${diffColor}44`, color:diffColor, borderRadius:8, padding: isMobile ? '6px 10px' : '8px 16px', fontSize: isMobile ? 12 : 13, fontWeight:600, whiteSpace:'nowrap' }}>New Game</button>
         </div>
       </div>
 
-      <div style={{ flex:1, display:'flex', gap:20, padding:'20px 24px', flexWrap:'wrap', justifyContent:'center', alignItems:'flex-start' }}>
+      <div style={{ flex:1, display:'flex', gap: isMobile ? 12 : 20, padding: isMobile ? '12px 16px' : '20px 24px', flexDirection: isMobile ? 'column' : 'row', flexWrap: isMobile ? 'nowrap' : 'wrap', justifyContent:'center', alignItems: isMobile ? 'center' : 'flex-start' }}>
         {/* Board column */}
         <div>
           {/* Turn + status */}
@@ -631,25 +646,25 @@ export default function ChessGame({ onBack }) {
         </div>
 
         {/* Sidebar */}
-        <div style={{ width:210, display:'flex', flexDirection:'column', gap:14 }}>
+        <div style={{ width: isMobile ? '100%' : 210, maxWidth: isMobile ? CELL * 8 + 6 : 'none', display:'flex', flexDirection: isMobile ? 'row' : 'column', gap: isMobile ? 10 : 14 }}>
           {/* Move history */}
-          <div style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:14, padding:16, maxHeight:400, overflowY:'auto', flex:1 }}>
-            <div style={{ fontFamily:'var(--font-head)', fontSize:11, color:'#00e5ff', marginBottom:12, letterSpacing:1 }}>MOVE HISTORY</div>
+          <div style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:14, padding: isMobile ? '10px 12px' : 16, maxHeight: isMobile ? 120 : 400, overflowY:'auto', flex:1 }}>
+            <div style={{ fontFamily:'var(--font-head)', fontSize:11, color:'#00e5ff', marginBottom: isMobile ? 6 : 12, letterSpacing:1 }}>MOVE HISTORY</div>
             {moveHistory.length===0
               ? <div style={{ color:'rgba(255,255,255,0.2)', fontSize:12 }}>No moves yet</div>
               : moveHistory.map((m,i)=>(
-                  <div key={i} style={{ padding:'5px 8px', borderRadius:6, background:i%2===0?'rgba(255,255,255,0.04)':'transparent', fontSize:12, color:'rgba(255,255,255,0.65)', display:'flex', gap:8 }}>
+                  <div key={i} style={{ padding:'4px 6px', borderRadius:6, background:i%2===0?'rgba(255,255,255,0.04)':'transparent', fontSize: isMobile ? 11 : 12, color:'rgba(255,255,255,0.65)', display:'flex', gap:8 }}>
                     <span style={{ color:'rgba(255,255,255,0.2)', fontSize:10 }}>{i+1}.</span>{m}
                   </div>
                 ))}
           </div>
 
           {/* How to play */}
-          <div style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:12, padding:14, fontSize:11, color:'rgba(255,255,255,0.35)', lineHeight:1.9 }}>
+          <div style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:12, padding: isMobile ? '10px 12px' : 14, fontSize:11, color:'rgba(255,255,255,0.35)', lineHeight:1.9, flex: isMobile ? '0 0 auto' : undefined }}>
             <div style={{ color:'rgba(255,255,255,0.45)', fontWeight:600, marginBottom:6 }}>Controls</div>
-            Click a piece → click destination<br />
-            Green dots = legal moves<br />
-            {mode==='vs_ai' && <>You play <b style={{color:'#fff'}}>White</b>. Computer plays <b style={{color:'rgba(255,255,255,0.6)'}}>Black</b>.</>}
+            {isMobile ? 'Tap piece → tap destination' : 'Click a piece → click destination'}<br />
+            {!isMobile && <>Green dots = legal moves<br /></>}
+            {mode==='vs_ai' && <>You play <b style={{color:'#fff'}}>White</b>.</>}
           </div>
         </div>
       </div>
